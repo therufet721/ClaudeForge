@@ -1,0 +1,10 @@
+{
+  "name": "UI Expert Workflow",
+  "description": "Comprehensive UI analysis and improvement recommendations.",
+  "agents": [
+    "ui-expert"
+  ],
+  "sequentialOrder": [
+    "ui-expert"
+  ]
+}
