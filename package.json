@@ -1,11 +1,11 @@
 {
-  "name": "claudeforge",
+  "name": "@therufet721/claudeforge",
   "version": "0.1.0",
   "description": "One command. Complete .claude folder. Production-ready AI agent orchestration.",
   "type": "module",
   "main": "dist/cli.js",
   "bin": {
-    "claudeforge": "./dist/cli.js"
+    "claudeforge": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -43,7 +43,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/therufet721/ClaudeForge.git"
+    "url": "git+https://github.com/therufet721/ClaudeForge.git"
   },
   "homepage": "https://github.com/therufet721/ClaudeForge#readme",
   "bugs": {
