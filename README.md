@@ -7,7 +7,7 @@ ClaudeForge is a CLI tool that takes a plain-English description of what you wan
 ## Installation
 
 ```bash
-npm install -g @therufet721/claudeforge
+npm install -g @therufat721/claudeforge
 ```
 
 Or run from source:
