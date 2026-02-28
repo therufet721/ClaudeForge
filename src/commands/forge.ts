@@ -175,7 +175,7 @@ export async function forgeCommand(
     structure.skills.forEach((s) => console.log(pc.green("  ✓") + ` ${s.name}`));
     console.log(pc.green("  ✓") + " CLAUDE.md updated\n");
     console.log(pc.bold("Done.") + " Your .claude folder is ready.\n");
-    console.log("Run: " + pc.cyan("claude \"review this PR\"") + " — your agents will handle the rest.\n");
+    console.log("Run: " + pc.cyan("claude") + " — your agents will handle the rest.\n");
   } catch (err) {
     // spinner was already succeed'd after Phase 1 — don't call .fail() on it
     const errMsg = err instanceof Error ? err.message : String(err);

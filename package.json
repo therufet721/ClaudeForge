@@ -40,5 +40,13 @@
   "files": [
     "dist",
     "README.md"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/therufet721/ClaudeForge.git"
+  },
+  "homepage": "https://github.com/therufet721/ClaudeForge#readme",
+  "bugs": {
+    "url": "https://github.com/therufet721/ClaudeForge/issues"
+  }
 }
