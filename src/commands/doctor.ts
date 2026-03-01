@@ -1,8 +1,8 @@
 import { readFile, readdir } from "fs/promises";
 import { join, resolve } from "path";
 import { existsSync } from "fs";
-import prompts from "prompts";
 import pc from "picocolors";
+import { sanitizeName } from "../lib/forge-writer.js";
 
 interface Issue {
   type: "error" | "warning";
@@ -83,16 +83,26 @@ export async function doctorCommand(options: { yes?: boolean }) {
         });
       }
 
-      // Check agent reference is valid
+      // Check agent reference is valid (sanitize to prevent path traversal)
       const agentMatch = content.match(/^agent:\s*(\S+)/m);
       if (agentMatch) {
-        const agentFile = join(claudePath, "agents", `${agentMatch[1]}.md`);
-        if (!existsSync(agentFile)) {
+        try {
+          const safeAgent = sanitizeName(agentMatch[1]);
+          const agentFile = join(claudePath, "agents", `${safeAgent}.md`);
+          if (!existsSync(agentFile)) {
+            issues.push({
+              type: "error",
+              file: `skills/${sd}/SKILL.md`,
+              message: `references agent "${agentMatch[1]}" which doesn't exist`,
+              fix: `Create agents/${safeAgent}.md or update the agent: field`,
+            });
+          }
+        } catch {
           issues.push({
             type: "error",
             file: `skills/${sd}/SKILL.md`,
-            message: `references agent "${agentMatch[1]}" which doesn't exist`,
-            fix: `Create agents/${agentMatch[1]}.md or update the agent: field`,
+            message: `invalid agent name "${agentMatch[1]}" in agent: field`,
+            fix: "Use a valid kebab-case agent name",
           });
         }
       }
@@ -120,8 +130,5 @@ export async function doctorCommand(options: { yes?: boolean }) {
   console.log(
     `\n${errors.length} error(s), ${warnings.length} warning(s) found.\n`
   );
-
-  if (options.yes || (await prompts({ type: "confirm", name: "fix", message: "Auto-fix all issues?", initial: true })).fix) {
-    console.log(pc.green("\n  ✓") + " Fixes would be applied (doctor auto-fix not fully implemented yet)\n");
-  }
+  console.log(pc.gray("  Apply fixes manually using the suggestions above.\n"));
 }

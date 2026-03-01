@@ -19,6 +19,19 @@ const ADD_SYSTEM = `You extend an existing .claude setup. Given the type and des
 
 Output ONLY valid JSON, no markdown. Use kebab-case for names.`;
 
+/** Escape a string for safe use in YAML (double-quoted value). */
+function escapeYamlString(s: string): string {
+  return `"${String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
+}
+
+const VALID_MODELS = ["sonnet", "opus", "haiku"] as const;
+function validateModel(model: unknown): "sonnet" | "opus" | "haiku" {
+  if (typeof model === "string" && VALID_MODELS.includes(model as (typeof VALID_MODELS)[number])) {
+    return model as "sonnet" | "opus" | "haiku";
+  }
+  return "sonnet";
+}
+
 export async function addCommand(
   type: string,
   description: string | undefined,
@@ -26,22 +39,38 @@ export async function addCommand(
 ) {
   const claudePath = resolve("./.claude");
   if (!existsSync(claudePath)) {
-    console.error(pc.red("Error:") + " No .claude folder found. Run " + pc.cyan("claudeforge forge") + " first.");
+    console.error(pc.red("Error:") + " No .claude folder found. Run " + pc.cyan("claudesmith forge") + " first.");
     process.exit(1);
   }
 
   if (!description) {
-    console.error(pc.red("Error:") + " Provide a description. Example: claudeforge add agent \"a deployment agent\"");
+    console.error(pc.red("Error:") + " Provide a description. Example: claudesmith add agent \"a deployment agent\"");
     process.exit(1);
   }
 
-  // Validate --to agent exists before generating anything
+  if (type === "skill" && !options.to) {
+    console.error(
+      pc.red("Error:") +
+        " Adding a skill requires --to <agent>. Example: " +
+        pc.cyan("claudesmith add skill \"accessibility audit\" --to my-agent")
+    );
+    process.exit(1);
+  }
+
+  // Validate --to agent exists before generating anything (sanitize to prevent path traversal)
   if (type === "skill" && options.to) {
-    const agentFile = join(resolve("./.claude"), "agents", `${options.to}.md`);
+    let safeTo: string;
+    try {
+      safeTo = sanitizeName(options.to);
+    } catch {
+      console.error(pc.red("Error:") + ` Invalid agent name "${options.to}". Use kebab-case (e.g. my-agent).`);
+      process.exit(1);
+    }
+    const agentFile = join(resolve("./.claude"), "agents", `${safeTo}.md`);
     if (!existsSync(agentFile)) {
       console.error(
         pc.red("Error:") + ` Agent "${options.to}" not found. ` +
-        `Run ${pc.cyan("claudeforge visualize")} to see available agents.`
+        `Run ${pc.cyan("claudesmith visualize")} to see available agents.`
       );
       process.exit(1);
     }
@@ -84,11 +113,12 @@ export async function addCommand(
       const agent: ForgeAgent = parsed.agents[0];
       const safeName = sanitizeName(agent.name);
       const description = agent.description ?? agent.persona?.split(/[.!?]/)[0]?.trim() ?? agent.name;
+      const model = validateModel(agent.model);
       const content = `---
 name: ${safeName}
-description: ${description}
+description: ${escapeYamlString(description)}
 tools: Read, Glob, Grep, Bash
-model: ${agent.model}
+model: ${model}
 ---
 
 # ${safeName}
@@ -106,7 +136,8 @@ ${agent.outputContract}
       spinner.succeed(`Added agent: ${safeName}`);
     } else if (type === "skill" && parsed.skills?.length) {
       const skill: ForgeSkill = parsed.skills[0];
-      if (options.to) skill.agent = options.to;
+      const safeAgent = options.to ? sanitizeName(options.to) : sanitizeName(skill.agent);
+      if (options.to) skill.agent = safeAgent;
       const safeSkillName = sanitizeName(skill.name);
       const skillDescription = skill.description
         ?? (skill.triggers?.slice(0, 2).join(". ") ?? skill.name);
@@ -117,9 +148,9 @@ ${agent.outputContract}
       await mkdir(join(skillDir, "templates"), { recursive: true });
       const skillContent = `---
 name: ${safeSkillName}
-description: "${skillDescription}"
+description: ${escapeYamlString(skillDescription)}
 context: fork
-agent: ${skill.agent}
+agent: ${safeAgent}
 ---
 
 # ${safeSkillName}
@@ -146,14 +177,6 @@ ${skill.instructions}
       await mkdir(join(outputPath, "commands"), { recursive: true });
       await safeWrite(rootReal, join(outputPath, "commands", `${safeName}.md`), `# ${safeName}\n\n${cmd.description}\n`);
       spinner.succeed(`Added command: /${safeName}`);
-    } else if (type === "hook" && parsed.hooks?.length) {
-      // Fallback: if parseForgeResponse somehow extracted a hook
-      const hook = parsed.hooks[0];
-      const safeName = sanitizeName(hook.name);
-      await mkdir(join(outputPath, "hooks"), { recursive: true });
-      await safeWrite(rootReal, join(outputPath, "hooks", safeName), hook.content);
-      spinner.succeed(`Added hook: ${safeName}`);
-      console.warn(pc.yellow(`  ⚠ Review hooks/${safeName} before trusting its shell logic.`));
     } else {
       spinner.fail("Could not parse generated content");
     }

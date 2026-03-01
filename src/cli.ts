@@ -8,14 +8,13 @@ import { addCommand } from "./commands/add.js";
 import { visualizeCommand } from "./commands/visualize.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { templateCommand } from "./commands/template.js";
-import { runCommand } from "./commands/run.js";
 import { startRepl } from "./repl.js";
 
 const _require = createRequire(import.meta.url);
 const VERSION: string = (_require("../package.json") as { version: string }).version;
 
 program
-  .name("claudeforge")
+  .name("claudesmith")
   .description(
     "One command. Complete .claude folder. Production-ready AI agent orchestration."
   )
@@ -42,7 +41,7 @@ program
 // Add
 program
   .command("add")
-  .description("Add agent, skill, or template to existing .claude")
+  .description("Add agent, skill, command, or hook to existing .claude")
   .argument("<type>", "agent | skill | command | hook")
   .argument("[description]", "What to add")
   .option("-t, --to <agent>", "Attach skill to this agent")
@@ -59,9 +58,8 @@ program
 // Doctor
 program
   .command("doctor")
-  .description("Scan .claude for problems and fix them")
-  .option("-y, --yes", "Auto-fix all issues without prompting")
-  .action((opts) => doctorCommand(opts));
+  .description("Scan .claude for issues and suggest fixes")
+  .action(() => doctorCommand({}));
 
 // Template
 program
@@ -70,13 +68,6 @@ program
   .argument("[action]", "list | use | publish")
   .argument("[name]", "Template name")
   .action((action, name) => templateCommand(action, name));
-
-// Run
-program
-  .command("run")
-  .description("Test orchestration locally with live output")
-  .argument("[input]", "Input to pass to the workflow")
-  .action((input) => runCommand(input));
 
 // Default: interactive REPL when no subcommand
 if (!process.argv[2]) {

@@ -1,24 +1,28 @@
 {
-  "name": "@therufat721/claudeforge",
-  "version": "0.1.0",
-  "description": "One command. Complete .claude folder. Production-ready AI agent orchestration.",
+  "name": "claudesmith",
+  "version": "0.2.2",
+  "description": "Generate production-ready .claude folders from plain English. Agents, skills, orchestration — one command.",
   "type": "module",
   "main": "dist/cli.js",
   "bin": {
-    "claudeforge": "dist/cli.js"
+    "claudesmith": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test": "npm run build && node --test dist/lib/__tests__/*.test.js"
   },
   "keywords": [
     "claude",
+    "claude-code",
     "ai",
     "agents",
+    "skills",
     "orchestration",
-    "cli"
+    "cli",
+    "anthropic"
   ],
   "author": "",
   "license": "MIT",
@@ -43,10 +47,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/therufet721/ClaudeForge.git"
+    "url": "git+https://github.com/therufet721/claudesmith.git"
   },
-  "homepage": "https://github.com/therufet721/ClaudeForge#readme",
+  "homepage": "https://github.com/therufet721/claudesmith#readme",
   "bugs": {
-    "url": "https://github.com/therufet721/ClaudeForge/issues"
+    "url": "https://github.com/therufet721/claudesmith/issues"
   }
 }

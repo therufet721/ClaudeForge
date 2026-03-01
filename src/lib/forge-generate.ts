@@ -13,31 +13,7 @@ import {
   REFERENCE_RULES,
   TEMPLATE_RULES,
 } from "../presets/index.js";
-
-/** Extract a balanced JSON object, correctly skipping braces inside strings. */
-function extractJson(text: string): string {
-  const trimmed = text.trim();
-  const start = trimmed.indexOf("{");
-  if (start < 0) throw new Error("No JSON in response");
-
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-
-  for (let i = start; i < trimmed.length; i++) {
-    const c = trimmed[i];
-    if (escape) { escape = false; continue; }
-    if (c === "\\" && inString) { escape = true; continue; }
-    if (c === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (c === "{") { depth++; continue; }
-    if (c === "}") {
-      depth--;
-      if (depth === 0) return trimmed.slice(start, i + 1);
-    }
-  }
-  throw new Error("Unbalanced JSON in response");
-}
+import { extractJson } from "./json-utils.js";
 
 export async function generateAgentFile(
   agent: StructureAgent,

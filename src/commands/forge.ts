@@ -19,7 +19,6 @@ import {
 } from "../lib/forge-generate.js";
 import { writeClaudeFolder } from "../lib/forge-writer.js";
 
-
 export async function forgeCommand(
   description: string | undefined,
   options: {
@@ -36,7 +35,7 @@ export async function forgeCommand(
 
   if (!finalDescription) {
     console.log(pc.bold("\n╔══════════════════════════════════════════════════╗"));
-    console.log(pc.bold("║") + "           ClaudeForge — Agent Builder            " + pc.bold("║"));
+    console.log(pc.bold("║") + "           ClaudeSmith — Agent Builder            " + pc.bold("║"));
     console.log(pc.bold("╚══════════════════════════════════════════════════╝\n"));
 
     const responses = await prompts([
@@ -75,6 +74,18 @@ export async function forgeCommand(
     const structure = parseForgeStructure(structureRes);
     spinner.succeed("Structure created");
 
+    // Validate skill→agent references before generating (prevent orphan skills)
+    const agentNames = new Set(structure.agents.map((a) => a.name));
+    for (const sk of structure.skills) {
+      if (!agentNames.has(sk.agent)) {
+        console.error(
+          pc.red("Error:") + ` Skill "${sk.name}" references agent "${sk.agent}" which is not in the structure. ` +
+          `Available agents: ${[...agentNames].join(", ")}`
+        );
+        process.exit(1);
+      }
+    }
+
     if (options.dryRun) {
       console.log(pc.cyan("\n[DRY RUN] Structure:\n"));
       console.log(JSON.stringify(structure, null, 2));
@@ -92,10 +103,7 @@ export async function forgeCommand(
     // Phase 2: Generate all files in parallel (agents, skills, commands, hooks, orchestration)
     console.log(pc.gray("  Generating files in parallel...\n"));
 
-    let workflowMd = "";
-    let orchestrationMd = "";
-
-    await Promise.all([
+    const allResults = await Promise.all([
       // Agents — critical path, propagate errors
       ...structure.agents.map(async (a) => {
         const s = ora(`  agents/${a.name}.md`).start();
@@ -103,11 +111,9 @@ export async function forgeCommand(
         s.succeed(`  agents/${a.name}.md`);
       }),
 
-      // Skills + supporting files — critical path, propagate errors
+      // Skills + supporting files — critical path, propagate errors (agent validated above)
       ...structure.skills.map(async (sk) => {
-        const agent = structure.agents.find((x) => x.name === sk.agent) ?? {
-          name: sk.agent, model: "sonnet" as const, roleSummary: "", description: "",
-        };
+        const agent = structure.agents.find((x) => x.name === sk.agent)!;
         const s = ora(`  skills/${sk.name}/SKILL.md`).start();
         skills.set(sk.name, await generateSkillFile(sk, agent, userInput, model));
         s.succeed(`  skills/${sk.name}/SKILL.md`);
@@ -153,14 +159,18 @@ export async function forgeCommand(
         }
       }),
 
-      // Orchestration docs — captures result into outer variables
-      generateOrchestrationFiles(structure, userInput, model).then((result) => {
+      // Orchestration docs — must complete before writeClaudeFolder
+      (async () => {
         const s = ora("  orchestration/...").start();
-        workflowMd = result.workflowMd;
-        orchestrationMd = result.orchestrationMd;
+        const result = await generateOrchestrationFiles(structure, userInput, model);
         s.succeed("  orchestration/workflow.md, ORCHESTRATION.md");
-      }),
+        return result;
+      })(),
     ]);
+
+    const orchestrationResult = allResults[allResults.length - 1] as { workflowMd: string; orchestrationMd: string };
+    const workflowMd = orchestrationResult.workflowMd;
+    const orchestrationMd = orchestrationResult.orchestrationMd;
 
     const writeSpinner = ora("\nStep 2/2: Writing files...").start();
     await writeClaudeFolder(outputPath, structure, {
@@ -175,7 +185,7 @@ export async function forgeCommand(
     structure.skills.forEach((s) => console.log(pc.green("  ✓") + ` ${s.name}`));
     console.log(pc.green("  ✓") + " CLAUDE.md updated\n");
     console.log(pc.bold("Done.") + " Your .claude folder is ready.\n");
-    console.log("Run: " + pc.cyan("claude") + " — your agents will handle the rest.\n");
+    console.log("Use " + pc.cyan("claude") + " (Claude Code) to run your agents — they delegate based on the description field.\n");
   } catch (err) {
     // spinner was already succeed'd after Phase 1 — don't call .fail() on it
     const errMsg = err instanceof Error ? err.message : String(err);

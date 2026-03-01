@@ -2,6 +2,7 @@
  * Phase 1: Structure only. Lists which files to create. No content.
  * Sent to Claude with user input → get filenames and minimal metadata.
  */
+import { extractJson } from "./json-utils.js";
 
 export interface StructureAgent {
   name: string;
@@ -50,31 +51,6 @@ export interface ForgeStructure {
   workflow: StructureWorkflow;
 }
 
-/** Extract a balanced JSON object, correctly skipping braces inside strings. */
-function extractJson(text: string): string {
-  const trimmed = text.trim();
-  const start = trimmed.indexOf("{");
-  if (start < 0) throw new Error("No JSON in structure response");
-
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-
-  for (let i = start; i < trimmed.length; i++) {
-    const c = trimmed[i];
-    if (escape) { escape = false; continue; }
-    if (c === "\\" && inString) { escape = true; continue; }
-    if (c === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (c === "{") { depth++; continue; }
-    if (c === "}") {
-      depth--;
-      if (depth === 0) return trimmed.slice(start, i + 1);
-    }
-  }
-  throw new Error("Unbalanced JSON in structure response");
-}
-
 export function parseForgeStructure(text: string): ForgeStructure {
   let cleaned = text.trim();
   const jsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -101,7 +77,7 @@ export function parseForgeStructure(text: string): ForgeStructure {
   };
 }
 
-export const STRUCTURE_PROMPT = `You are ClaudeForge. Given the user's request, output ONLY a JSON structure listing which files to create. No content. Just filenames and minimal metadata.
+export const STRUCTURE_PROMPT = `You are ClaudeSmith. Given the user's request, output ONLY a JSON structure listing which files to create. No content. Just filenames and minimal metadata.
 
 Output ONLY this JSON (no other text, first char {, last char }):
 
