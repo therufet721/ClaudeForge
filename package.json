@@ -1,6 +1,6 @@
 {
   "name": "claudesmith",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Generate production-ready .claude folders from plain English. Agents, skills, orchestration — one command.",
   "type": "module",
   "main": "dist/cli.js",

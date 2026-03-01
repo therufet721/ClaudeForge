@@ -4,6 +4,31 @@ import { getEffectiveApiKey } from "./config.js";
 const TIMEOUT_MS = 120_000; // 2 minutes per call
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 1_000;
+const CONCURRENCY_LIMIT = 2; // Stay under Anthropic's concurrent connection limit
+
+/** Semaphore for limiting concurrent API calls. */
+let _activeCalls = 0;
+const _waitQueue: Array<() => void> = [];
+
+async function acquireSlot(): Promise<void> {
+  if (_activeCalls < CONCURRENCY_LIMIT) {
+    _activeCalls++;
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    _waitQueue.push(() => {
+      _activeCalls++;
+      resolve();
+    });
+  });
+}
+
+function releaseSlot(): void {
+  _activeCalls--;
+  if (_waitQueue.length > 0) {
+    _waitQueue.shift()!();
+  }
+}
 
 /** Invalidate the cached client (call after changing the API key). */
 export function resetAnthropicClient(): void {
@@ -41,6 +66,19 @@ async function sleep(ms: number): Promise<void> {
 }
 
 export async function callClaude(
+  systemPrompt: string,
+  userMessage: string,
+  options: { model?: string; maxTokens?: number } = {}
+): Promise<string> {
+  await acquireSlot();
+  try {
+    return await callClaudeUnthrottled(systemPrompt, userMessage, options);
+  } finally {
+    releaseSlot();
+  }
+}
+
+async function callClaudeUnthrottled(
   systemPrompt: string,
   userMessage: string,
   options: { model?: string; maxTokens?: number } = {}
