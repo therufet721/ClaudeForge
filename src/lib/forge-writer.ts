@@ -5,6 +5,11 @@ import { mkdir, writeFile, realpath, chmod } from "fs/promises";
 import { join, resolve } from "path";
 import type { ForgeStructure } from "./forge-structure.js";
 
+/** Normalize path for cross-platform comparison (handles Windows backslashes). */
+function normalizePath(p: string): string {
+  return resolve(p).replace(/\\/g, "/");
+}
+
 /**
  * Sanitizes an AI-generated name for safe use as a single filesystem path
  * component (no directory separators, no `..`, no leading dots).
@@ -27,12 +32,21 @@ export function sanitizeName(name: string): string {
 /**
  * Resolves a path and verifies it is still inside `rootDir`.
  * Guards against symlink-based path traversal attacks.
+ * Cross-platform: works on Windows (backslashes) and Unix.
  */
 export async function safeWrite(rootReal: string, filePath: string, content: string): Promise<void> {
   const absPath = resolve(filePath);
-  // Resolve the parent directory (the file itself may not exist yet)
-  const parentReal = await realpath(resolve(absPath, ".."));
-  if (!parentReal.startsWith(rootReal + "/") && parentReal !== rootReal) {
+  const parentDir = resolve(absPath, "..");
+  let parentReal: string;
+  try {
+    parentReal = await realpath(parentDir);
+  } catch (err) {
+    throw new Error(`Cannot resolve parent directory: ${parentDir}. ${(err as Error).message}`);
+  }
+  const rootNorm = normalizePath(rootReal);
+  const parentNorm = normalizePath(parentReal);
+  const isInside = parentNorm === rootNorm || parentNorm.startsWith(rootNorm + "/");
+  if (!isInside) {
     throw new Error(`Path traversal detected: ${absPath} is outside ${rootReal}`);
   }
   await writeFile(absPath, content, "utf-8");
@@ -63,7 +77,12 @@ export async function writeClaudeFolder(
   for (const dir of dirs) await mkdir(dir, { recursive: true });
 
   // Resolve the canonical root once — all writes are validated against it
-  const rootReal = await realpath(basePath);
+  let rootReal: string;
+  try {
+    rootReal = await realpath(basePath);
+  } catch (err) {
+    throw new Error(`Cannot resolve output directory: ${basePath}. ${(err as Error).message}`);
+  }
 
   // Agents
   for (const a of structure.agents) {
@@ -117,8 +136,14 @@ export async function writeClaudeFolder(
   await safeWrite(rootReal, join(basePath, "orchestration", "workflow.json"), workflowJson);
   const order = structure.workflow.sequentialOrder;
   const toMermaidId = (name: string) => name.replace(/[^a-zA-Z0-9]/g, "_");
-  const nodes = order.map((a) => `  ${toMermaidId(a)}["${a}"]`).join("\n");
-  const arrows = order.slice(0, -1).map((a, i) => `  ${toMermaidId(a)} --> ${toMermaidId(order[i + 1])}`).join("\n");
+  const nodes =
+    order.length > 0
+      ? order.map((a) => `  ${toMermaidId(a)}["${a}"]`).join("\n")
+      : "  empty[No agents in workflow]";
+  const arrows =
+    order.length > 1
+      ? order.slice(0, -1).map((a, i) => `  ${toMermaidId(a)} --> ${toMermaidId(order[i + 1])}`).join("\n")
+      : "";
   const workflowMd =
     files.workflowMd ||
     `# ${structure.workflow.name}\n\n${structure.workflow.description}\n\n\`\`\`mermaid\nflowchart TD\n${nodes}\n${arrows}\n\`\`\`\n`;
@@ -136,6 +161,7 @@ export async function writeClaudeFolder(
   }
 
   // Hooks — written as executable scripts
+  const writtenHooks: string[] = [];
   for (const h of structure.hooks) {
     const content = files.hooks.get(h.name);
     if (content) {
@@ -143,9 +169,11 @@ export async function writeClaudeFolder(
       const hookPath = join(basePath, "hooks", safeName);
       await safeWrite(rootReal, hookPath, content);
       await chmod(hookPath, 0o755);
-      // Security: hooks are AI-generated shell scripts — users should review before relying on them.
-      console.warn(`  ⚠ Hook written: hooks/${safeName} — review before trusting its shell logic.`);
+      writtenHooks.push(safeName);
     }
+  }
+  if (writtenHooks.length > 0) {
+    console.warn(`  ⚠ ${writtenHooks.length} hook(s) written (${writtenHooks.join(", ")}) — review before trusting shell logic.`);
   }
 
   // CLAUDE.md

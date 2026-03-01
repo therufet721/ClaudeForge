@@ -7,18 +7,16 @@ import ora from "ora";
 import prompts from "prompts";
 import { authCommand } from "./commands/auth.js";
 import { forgeCommand } from "./commands/forge.js";
-import { runCommand } from "./commands/run.js";
 import { isAuthenticated } from "./lib/config.js";
 import { callClaude } from "./lib/anthropic.js";
 
 const COMMANDS = [
   { cmd: "/forge", desc: "Create or update .claude folder — /forge [description]" },
-  { cmd: "/run", desc: "Run orchestration — /run [input]" },
-  { cmd: "/auth", desc: "Authenticate with Anthropic API" },
+  { cmd: "/auth", desc: "Authenticate with Anthropic API (use /auth status for status)" },
   { cmd: "/logout", desc: "Clear stored credentials" },
   { cmd: "/help", desc: "Show this help" },
   { cmd: "/", desc: "List available commands" },
-  { cmd: "/exit", desc: "Exit ClaudeForge" },
+  { cmd: "/exit", desc: "Exit ClaudeSmith" },
 ];
 
 const LOGO = [
@@ -164,8 +162,8 @@ export async function startRepl(): Promise<void> {
       process.exit(0);
     }
 
-    if (input === "/auth") {
-      await authCommand({});
+    if (input === "/auth" || input === "/auth status") {
+      await authCommand({ status: input.includes("status") });
       prompt();
       return;
     }
@@ -192,13 +190,6 @@ export async function startRepl(): Promise<void> {
       return;
     }
 
-    if (input.startsWith("/run")) {
-      const runInput = input.slice(4).trim();
-      await runCommand(runInput || undefined);
-      prompt();
-      return;
-    }
-
     if (input.startsWith("/")) {
       console.log(pc.yellow("\n  Unknown command. Type " + pc.cyan("/") + " for available commands.\n"));
       prompt();
@@ -217,7 +208,7 @@ export async function startRepl(): Promise<void> {
       const context = await loadClaudeContext();
       const systemPrompt =
         context +
-        `\n\nYou are a helpful assistant. The user is working with ClaudeForge in the repo above. Use the project context (languages, frameworks, structure) to give relevant, stack-aware answers. Answer concisely. If they want to create agents/skills, suggest they use /forge.`;
+        `\n\nYou are a helpful assistant. The user is working with ClaudeSmith in the repo above. Use the project context (languages, frameworks, structure) to give relevant, stack-aware answers. Answer concisely. If they want to create agents/skills, suggest they use /forge.`;
       const response = await callClaude(systemPrompt, input);
       spinner.stop();
       console.log(pc.green("\n  Claude:") + "\n  " + response.split("\n").join("\n  ") + "\n");

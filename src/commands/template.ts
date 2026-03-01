@@ -21,13 +21,27 @@ export async function templateCommand(
     for (const t of BUILTIN_TEMPLATES) {
       console.log(`  ${pc.cyan(t.name.padEnd(22))} ${t.desc}`);
     }
-    console.log("\nInstall: " + pc.cyan("claudeforge template use <name>") + "\n");
+    console.log("\nInstall: " + pc.cyan("claudesmith template use <name>") + "\n");
     return;
   }
 
   if (act === "use" && name) {
-    console.log(pc.yellow("\nTemplate registry coming soon."));
-    console.log("For now, use: " + pc.cyan(`claudeforge forge "${BUILTIN_TEMPLATES.find((t) => t.name === name)?.desc ?? name}"`) + "\n");
+    const template = BUILTIN_TEMPLATES.find((t) => t.name === name);
+    const desc = template?.desc ?? name;
+    if (template) {
+      const { forgeCommand } = await import("./forge.js");
+      console.log(pc.cyan(`\nInstalling template: ${name}\n`));
+      await forgeCommand(desc, { output: "./.claude" });
+    } else {
+      console.log(pc.yellow(`\nUnknown template: ${name}`));
+      console.log("Available: " + BUILTIN_TEMPLATES.map((t) => t.name).join(", "));
+      console.log("Use: " + pc.cyan("claudesmith template use <name>") + "\n");
+    }
+    return;
+  }
+
+  if (act === "use" && !name) {
+    console.log(pc.red("Error:") + " Specify a template name. Example: " + pc.cyan("claudesmith template use pr-review-pipeline") + "\n");
     return;
   }
 
@@ -36,5 +50,5 @@ export async function templateCommand(
     return;
   }
 
-  console.log("Usage: claudeforge template [list|use|publish] [name]");
+  console.log("Usage: claudesmith template [list|use|publish] [name]");
 }

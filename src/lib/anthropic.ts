@@ -17,10 +17,10 @@ export async function getAnthropicClient(): Promise<Anthropic> {
   const apiKey = await getEffectiveApiKey();
   if (!apiKey) {
     throw new Error(
-      "Not authenticated. Run 'claudeforge auth' to add your API key."
+      "Not authenticated. Run 'claudesmith auth' to add your API key."
     );
   }
-  // Recreate client if the key changed (e.g. after claudeforge auth mid-session)
+  // Recreate client if the key changed (e.g. after claudesmith auth mid-session)
   if (!_client || _clientKey !== apiKey) {
     _client = new Anthropic({ apiKey });
     _clientKey = apiKey;

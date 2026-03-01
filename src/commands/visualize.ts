@@ -66,16 +66,18 @@ function workflowToTerminal(w: {
   const gates = w.gates ?? [];
   const parallelGroups = w.parallelGroups ?? [];
 
+  // Show both sequential flow and parallel groups when both exist
+  if (order.length) {
+    for (let i = 0; i < order.length; i++) {
+      const prefix = i === order.length - 1 && parallelGroups.length === 0 && gates.length === 0 ? "    └──▶" : "    ├──▶";
+      out += `${prefix} [${order[i]}]\n`;
+    }
+  }
   if (parallelGroups.length) {
     for (const group of parallelGroups) {
       for (const a of group) {
-        out += `    ├──▶ [${a}]\n`;
+        out += `    ├──▶ [${a}] (parallel)\n`;
       }
-    }
-  } else {
-    for (let i = 0; i < order.length; i++) {
-      const prefix = i === order.length - 1 && gates.length === 0 ? "    └──▶" : "    ├──▶";
-      out += `${prefix} [${order[i]}]\n`;
     }
   }
 
@@ -97,17 +99,27 @@ function workflowToMermaid(w: {
   name?: string;
   agents?: string[];
   sequentialOrder?: string[];
+  parallelGroups?: string[][];
   gates?: { waitsFor: string[]; then: string }[];
 }): string {
   let md = "```mermaid\nflowchart TD\n";
-  const agents = w.agents ?? [];
-  const order = w.sequentialOrder ?? agents;
+  // Use sequentialOrder as single source of truth for nodes and arrows; merge with agents for any extras
+  const order = w.sequentialOrder ?? w.agents ?? [];
+  const agentsSet = new Set([...order, ...(w.agents ?? [])]);
+  const allNodes = [...agentsSet];
+  // Add parallel group members not already in order
+  for (const group of w.parallelGroups ?? []) {
+    for (const a of group) {
+      if (!agentsSet.has(a)) {
+        allNodes.push(a);
+        agentsSet.add(a);
+      }
+    }
+  }
 
-  for (const a of agents) {
-    // Use quoted labels so special chars in names display correctly
+  for (const a of allNodes) {
     md += `  ${mermaidId(a)}["${a.replace(/"/g, "'")}"]\n`;
   }
-  // Sequential arrows from workflow order
   for (let i = 0; i < order.length - 1; i++) {
     md += `  ${mermaidId(order[i])} --> ${mermaidId(order[i + 1])}\n`;
   }

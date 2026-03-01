@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, chmod } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
 
-export interface ClaudeforgeConfig {
+export interface ClaudesmithConfig {
   auth?: {
     apiKey?: string;
   };
@@ -15,30 +15,30 @@ export interface ClaudeforgeConfig {
   };
 }
 
-const DEFAULT_CONFIG: ClaudeforgeConfig = {
+const DEFAULT_CONFIG: ClaudesmithConfig = {
   defaults: {
     model: "claude-sonnet-4-6",
   },
   registry: {
-    url: "https://registry.claudeforge.dev",
+    url: "https://registry.claudesmith.dev", // Placeholder; override in config if using custom registry
     publish_public: false,
   },
 };
 
 function getConfigDir(): string {
   const home = homedir();
-  return join(home, ".claudeforge");
+  return join(home, ".claudesmith");
 }
 
 function getConfigPath(): string {
   return join(getConfigDir(), "config.json");
 }
 
-export async function loadConfig(): Promise<ClaudeforgeConfig> {
+export async function loadConfig(): Promise<ClaudesmithConfig> {
   try {
     const path = getConfigPath();
     const data = await readFile(path, "utf-8");
-    const parsed = JSON.parse(data) as ClaudeforgeConfig;
+    const parsed = JSON.parse(data) as ClaudesmithConfig;
     // Deep merge so a partial stored config (e.g. only "model") doesn't wipe nested defaults.
     return {
       ...DEFAULT_CONFIG,
@@ -51,7 +51,7 @@ export async function loadConfig(): Promise<ClaudeforgeConfig> {
   }
 }
 
-export async function saveConfig(config: ClaudeforgeConfig): Promise<void> {
+export async function saveConfig(config: ClaudesmithConfig): Promise<void> {
   const dir = getConfigDir();
   await mkdir(dir, { recursive: true });
   // Restrict directory to owner only — prevents other users listing the config dir
@@ -83,6 +83,8 @@ export async function clearAuth(): Promise<void> {
   const config = await loadConfig();
   delete config.auth;
   await saveConfig(config);
+  const { resetAnthropicClient } = await import("./anthropic.js");
+  resetAnthropicClient();
 }
 
 export async function isAuthenticated(): Promise<boolean> {

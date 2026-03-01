@@ -9,7 +9,7 @@ export async function authCommand(options: { status?: boolean }) {
     const envKey = process.env.ANTHROPIC_API_KEY;
     const storedKey = config.auth?.apiKey;
 
-    console.log(pc.bold("\nClaudeForge Auth Status\n"));
+    console.log(pc.bold("\nClaudeSmith Auth Status\n"));
     if (envKey) {
       console.log(pc.green("✓") + " ANTHROPIC_API_KEY (env) — active");
     }
@@ -19,13 +19,13 @@ export async function authCommand(options: { status?: boolean }) {
     }
     if (!envKey && !storedKey) {
       console.log(pc.red("✗") + " Not authenticated");
-      console.log("\nRun " + pc.cyan("claudeforge auth") + " to add your API key.");
+      console.log("\nRun " + pc.cyan("claudesmith auth") + " to add your API key.");
     }
     console.log();
     return;
   }
 
-  console.log(pc.bold("\nClaudeForge Authentication\n"));
+  console.log(pc.bold("\nClaudeSmith Authentication\n"));
   console.log("Get your API key from: " + pc.cyan("https://console.anthropic.com/account/keys"));
   const { apiKey } = await prompts({
     type: "password",
@@ -39,6 +39,6 @@ export async function authCommand(options: { status?: boolean }) {
 
   await setApiKey(apiKey);
   resetAnthropicClient(); // force new client with the new key this session
-  console.log(pc.green("\n✓") + " API key stored in ~/.claudeforge/config.json");
+  console.log(pc.green("\n✓") + " API key stored in ~/.claudesmith/config.json");
   console.log(pc.gray("  (ANTHROPIC_API_KEY env var overrides this)\n"));
 }
